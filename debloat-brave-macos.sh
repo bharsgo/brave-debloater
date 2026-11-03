@@ -79,7 +79,7 @@ case "$CHANNEL" in
 esac
 
 if [[ -n "${SUDO_USER:-}" ]]; then
-    REAL_HOME="$(eval echo ~${SUDO_USER})"
+    IFS=: read -r _ _ _ _ _ REAL_HOME _ <<< "$(getent passwd "${SUDO_USER}")"
 else
     REAL_HOME="${HOME}"
 fi
@@ -142,7 +142,7 @@ run_interactive() {
         echo ""
     done
 
-    if [[ ${#POLICIES[@]} -eq 0 ]]; then
+    if (( ${#POLICIES[@]} == 0 )); then
         print_warn "No policies selected. Nothing to apply."
         exit 0
     fi
@@ -174,7 +174,7 @@ print_error() { echo -e "${RED}✗${NC} $1"; }
 print_info()  { echo -e "${CYAN}ℹ${NC} $1"; }
 
 check_sudo() {
-    if [[ $EUID -ne 0 ]]; then
+    if (( EUID != 0 )); then
         print_error "This script requires administrator privileges (sudo)."
         echo ""
         echo "   macOS managed policies MUST be written to:"
@@ -577,7 +577,7 @@ restore_backup() {
             backups+=("${bname}")
         fi
     done < <(find "${BACKUP_DIR}" -maxdepth 1 -mindepth 1 -type d -print0 | sort -z)
-    if [[ ${#backups[@]} -eq 0 ]]; then
+    if (( ${#backups[@]} == 0 )); then
         print_error "No backups found for ${BRAVE_APP_NAME}."
         exit 1
     fi
@@ -635,10 +635,7 @@ uninstall_policies() {
     if [[ -f "${MANAGED_PLIST}" ]]; then
         has_policies=true
     fi
-    if profiles show 2>/dev/null | grep -q "com.brave.debloat.profile"; then
-        has_policies=true
-    fi
-    if profiles show 2>/dev/null | grep -q "com.brave.debloat.profile.${CHANNEL}"; then
+    if profiles show 2>/dev/null | grep -q "com.brave.debloat.profile\|com.brave.debloat.profile.${CHANNEL}"; then
         has_policies=true
     fi
     if [[ -f "/Library/LaunchDaemons/com.brave.debloat.${BROWSER_BUNDLE_ID}.plist" ]]; then
